@@ -1,20 +1,39 @@
 
+import { db } from '../db';
+import { usersTable } from '../db/schema';
 import { type UpdateUserBalanceInput, type User } from '../schema';
+import { eq } from 'drizzle-orm';
 
 export const updateUserBalance = async (input: UpdateUserBalanceInput): Promise<User> => {
-    // This is a placeholder declaration! Real code should be implemented here.
-    // The goal of this handler is updating user balance for admin operations.
-    // It should validate the amount, update the user's balance, and create an audit trail.
-    return Promise.resolve({
-        id: input.user_id,
-        username: 'placeholder',
-        email: 'placeholder@example.com',
-        full_name: 'Placeholder Name',
-        phone_number: '1234567890',
-        role: 'USER',
-        account_status: 'ACTIVE',
-        balance: input.amount,
-        created_at: new Date(),
+  try {
+    // First, verify the user exists
+    const existingUsers = await db.select()
+      .from(usersTable)
+      .where(eq(usersTable.id, input.user_id))
+      .execute();
+
+    if (existingUsers.length === 0) {
+      throw new Error(`User with id ${input.user_id} not found`);
+    }
+
+    // Update the user's balance
+    const result = await db.update(usersTable)
+      .set({
+        balance: input.amount.toString(), // Convert number to string for numeric column
         updated_at: new Date()
-    } as User);
+      })
+      .where(eq(usersTable.id, input.user_id))
+      .returning()
+      .execute();
+
+    // Convert numeric field back to number before returning
+    const user = result[0];
+    return {
+      ...user,
+      balance: parseFloat(user.balance) // Convert string back to number
+    };
+  } catch (error) {
+    console.error('User balance update failed:', error);
+    throw error;
+  }
 };

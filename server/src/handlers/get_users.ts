@@ -1,9 +1,21 @@
 
+import { db } from '../db';
+import { usersTable } from '../db/schema';
 import { type User } from '../schema';
 
 export const getUsers = async (): Promise<User[]> => {
-    // This is a placeholder declaration! Real code should be implemented here.
-    // The goal of this handler is fetching all users from the database for admin panel.
-    // It should return user information including balance and account status.
-    return Promise.resolve([]);
+  try {
+    const results = await db.select()
+      .from(usersTable)
+      .execute();
+
+    // Convert numeric fields back to numbers
+    return results.map(user => ({
+      ...user,
+      balance: parseFloat(user.balance) // Convert string back to number
+    }));
+  } catch (error) {
+    console.error('Get users failed:', error);
+    throw error;
+  }
 };

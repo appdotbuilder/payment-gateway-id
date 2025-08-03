@@ -1,20 +1,30 @@
 
+import { db } from '../db';
+import { usersTable } from '../db/schema';
 import { type CreateUserInput, type User } from '../schema';
 
 export const createUser = async (input: CreateUserInput): Promise<User> => {
-    // This is a placeholder declaration! Real code should be implemented here.
-    // The goal of this handler is creating a new user account in the payment gateway system.
-    // It should validate the input, check for existing username/email, and persist the user to the database.
-    return Promise.resolve({
-        id: 1,
+  try {
+    // Insert user record
+    const result = await db.insert(usersTable)
+      .values({
         username: input.username,
         email: input.email,
         full_name: input.full_name,
         phone_number: input.phone_number,
-        role: input.role || 'USER',
-        account_status: 'ACTIVE',
-        balance: 0,
-        created_at: new Date(),
-        updated_at: new Date()
-    } as User);
+        role: input.role // This will use the default 'USER' if not provided due to Zod schema
+      })
+      .returning()
+      .execute();
+
+    // Convert numeric fields back to numbers before returning
+    const user = result[0];
+    return {
+      ...user,
+      balance: parseFloat(user.balance) // Convert string back to number
+    };
+  } catch (error) {
+    console.error('User creation failed:', error);
+    throw error;
+  }
 };

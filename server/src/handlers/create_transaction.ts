@@ -1,20 +1,53 @@
 
+import { db } from '../db';
+import { transactionsTable, usersTable } from '../db/schema';
 import { type CreateTransactionInput, type Transaction } from '../schema';
+import { eq } from 'drizzle-orm';
 
 export const createTransaction = async (input: CreateTransactionInput): Promise<Transaction> => {
-    // This is a placeholder declaration! Real code should be implemented here.
-    // The goal of this handler is creating a new transaction (top-up, payment, or withdrawal).
-    // It should validate the user exists, check balance for payments/withdrawals, and create the transaction record.
-    return Promise.resolve({
-        id: 1,
+  try {
+    // Validate user exists
+    const users = await db.select()
+      .from(usersTable)
+      .where(eq(usersTable.id, input.user_id))
+      .execute();
+
+    if (users.length === 0) {
+      throw new Error('User not found');
+    }
+
+    const user = users[0];
+
+    // Check balance for payments and withdrawals
+    if (input.type === 'PAYMENT' || input.type === 'WITHDRAWAL') {
+      const currentBalance = parseFloat(user.balance);
+      if (currentBalance < input.amount) {
+        throw new Error('Insufficient balance');
+      }
+    }
+
+    // Create transaction record
+    const result = await db.insert(transactionsTable)
+      .values({
         user_id: input.user_id,
         type: input.type,
-        amount: input.amount,
-        status: 'PENDING',
+        amount: input.amount.toString(), // Convert number to string for numeric column
         payment_method: input.payment_method,
         description: input.description || null,
         reference_id: input.reference_id || null,
-        created_at: new Date(),
-        updated_at: new Date()
-    } as Transaction);
+        status: 'PENDING' // Default status
+      })
+      .returning()
+      .execute();
+
+    // Convert numeric fields back to numbers before returning
+    const transaction = result[0];
+    return {
+      ...transaction,
+      amount: parseFloat(transaction.amount) // Convert string back to number
+    };
+  } catch (error) {
+    console.error('Transaction creation failed:', error);
+    throw error;
+  }
 };
